@@ -1,0 +1,11 @@
+tasks:
+  file_path: Tasks.xlsx
+  sheet_name: Sprint1
+sprint:
+  start_of_sprint: 1643401800  # start of the sprint (Unix epoch time to avoid timezone problems)
+  sprint_days: 14
+  total_sprint_time: 80  # Estimated hours to be used to track off-schedule spent times.
+clockify:
+  api_key: <API KEY>  # Find it in https://clockify.me/user/settings
+  workspace_name: ''  # name of the workspace in clockify (leave it blank if you have just one workspace)
+  user_name: ''  # Leave it blank if you are the only user
