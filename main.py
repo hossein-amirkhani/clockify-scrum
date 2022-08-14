@@ -1,7 +1,11 @@
+# ToDo: Don't stretch line for over-spent time
+#       Normal time input
+#       Overall time on the title of figure
+
 import argparse
 import yaml
 import re
-import numpy as np
+import math
 import pandas as pd
 from datetime import datetime
 from dateutil import parser
@@ -77,14 +81,14 @@ def process_entries(config, entries, projects):
     tasks_path = config['tasks']['file_path']
     sheet_name = config['tasks']['sheet_name']
     start_of_sprint = config['sprint']['start_of_sprint']
-    end_of_sprint = start_of_sprint + config['sprint']['sprint_days'] * 86400
-    total_sprint_time = config['sprint']['total_sprint_time']
+    end_of_sprint = start_of_sprint + len(config['sprint']['sprint_days']) * 86400
+    total_sprint_time = sum(config['sprint']['sprint_days']) * config['sprint']['day_time']
 
     # Read tasks and sort to place tasks above projects
     # (to avoid double calculation of clockify entries which match both a project and a task)
     tasks = pd.read_excel(tasks_path, sheet_name=sheet_name).sort_values('Description', ascending=False).reset_index(
         drop=True)
-    total_scheduled_hours = np.sum(tasks['Estimated Hours'])
+    total_scheduled_hours = sum(tasks['Estimated Hours'])
 
     # Process time entries
     results = [[0.0, float(d['Estimated Hours']), d['Description']] for i, d in
@@ -111,7 +115,7 @@ def process_entries(config, entries, projects):
 
 
 def plot_results(config, results, total_scheduled_hours):
-    total_sprint_time = config['sprint']['total_sprint_time']
+    total_sprint_time = sum(config['sprint']['sprint_days']) * config['sprint']['day_time']
     start_of_sprint = config['sprint']['start_of_sprint']
     sprint_days = config['sprint']['sprint_days']
 
@@ -127,12 +131,22 @@ def plot_results(config, results, total_scheduled_hours):
     g.legend_ = None
     g.set(xticklabels=[])
     g.set(xlabel='Hours')
-    total_spent_scheduled_hours = np.sum(
+    total_spent_scheduled_hours = sum(
         [min(r[0], r[1]) for r in results[:-1]])  # Just scheduled tasks. Times spent more than scheduled not considered
-    total_spent_hours = np.sum([r[0] for r in results])
+    total_spent_hours = sum([r[0] for r in results])
+
+    # Compute expected progress
+    passed_full_days = math.floor((datetime.now().timestamp() - start_of_sprint) / 86400)
+    working_full_days = sum(sprint_days[:passed_full_days])
+    if passed_full_days < len(sprint_days):
+        today_expected_progress = (datetime.now().timestamp() - (start_of_sprint + passed_full_days * 86400)) * sprint_days[passed_full_days]
+    else:
+        today_expected_progress = 0
+    expected_progress = (working_full_days * 86400 + today_expected_progress) / (sum(sprint_days)*86400) * 100
+
     g.set(title=f"Tasks achievement: {total_spent_scheduled_hours / total_scheduled_hours * 100:.1f}% - " +
                 f"Total time: {total_spent_hours / total_sprint_time * 100:.1f}% - " +
-                f"Expected: {min(datetime.now().timestamp() - start_of_sprint, (sprint_days * 86400)) / (sprint_days * 86400) * 100:.1f}%")
+                f"Expected: {expected_progress:.1f}%")
 
     for i, container in enumerate(g.containers):
         if i == 0:  # spent
